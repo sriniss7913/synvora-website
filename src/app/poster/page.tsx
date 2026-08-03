@@ -181,19 +181,6 @@ export default function PosterPage() {
             </div>
           </div>
 
-          {/* Delivered Work Highlight */}
-          <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 relative z-10 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-synvora-emerald-400 uppercase tracking-wider">
-                FEATURED DELIVERED PROJECT
-              </span>
-              <span className="text-[11px] font-mono text-slate-400">Android Application</span>
-            </div>
-            <h4 className="text-lg font-bold text-white">Suras Elevators — Client & Service Maintenance App</h4>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Native Android application with 30-day AMC renewal notifications, milestone payment tracking, and site management.
-            </p>
-          </div>
 
           {/* Contact Details Box */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 relative z-10 space-y-4">
