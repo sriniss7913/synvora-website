@@ -23,6 +23,7 @@ export const NAVIGATION_LINKS = [
     ],
   },
   { name: 'Industries', href: '/industries' },
+  { name: 'Projects', href: '/projects', badge: 'Case Study' },
   { name: 'Brochure', href: '/brochure', badge: 'PDF' },
   { name: 'Assessment', href: '/assessment', badge: 'Interactive' },
   { name: 'Contact', href: '/contact' },
