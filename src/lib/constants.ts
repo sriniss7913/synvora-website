@@ -25,7 +25,6 @@ export const NAVIGATION_LINKS = [
   },
   { name: 'Industries', href: '/industries' },
   { name: 'Projects', href: '/projects' },
-  { name: 'Brochure', href: '/brochure', badge: 'PDF' },
   { name: 'Assessment', href: '/assessment', badge: 'Interactive' },
   { name: 'Contact', href: '/contact' },
 ];
