@@ -32,9 +32,9 @@ export default function ProjectsPage() {
       <section className="bg-slate-50 dark:bg-slate-900/50 py-12 md:py-16 border-b border-slate-200/80 dark:border-slate-800 mb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <SectionHeader
-            badgeText="Featured Delivered Case Study"
+            badgeText="Delivered Client Work"
             badgeVariant="emerald"
-            title="Projects & Client Success Stories"
+            title="Projects"
             subtitle="Explore how Synvora Technologies delivers custom Android applications, AI engines, and enterprise solutions for real-world industry leaders."
           />
         </div>
