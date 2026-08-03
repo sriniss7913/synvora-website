@@ -4,7 +4,7 @@ export const SITE_CONFIG = {
   philosophy: 'Humans and Technology. Stronger Together.',
   vision: 'To become a globally trusted technology company that transforms businesses through intelligence, innovation, and digital trust.',
   mission: 'We help businesses become smarter, more secure, and future-ready by delivering AI-powered automation, cybersecurity, digital transformation, and innovative software solutions.',
-  email: 'contact@synvora.tech',
+  email: 'contact@synvoratech.in',
   phone: '+1 (800) 555-SYN VORA',
   address: 'Synvora Tower, Innovation Way, Tech Hub',
   linkedin: 'https://linkedin.com/company/synvora-technologies',
@@ -23,6 +23,7 @@ export const NAVIGATION_LINKS = [
     ],
   },
   { name: 'Industries', href: '/industries' },
+  { name: 'Brochure', href: '/brochure', badge: 'PDF' },
   { name: 'Assessment', href: '/assessment', badge: 'Interactive' },
   { name: 'Contact', href: '/contact' },
 ];
