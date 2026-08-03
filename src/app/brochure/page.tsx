@@ -467,7 +467,7 @@ export default function BrochurePage() {
           <div>
             <div className="flex items-center justify-between pb-6 border-b border-slate-800 mb-8">
               <SynvoraLogo variant="compact" />
-              <span className="text-xs font-mono text-synvora-emerald-400 font-semibold">PAGE 10 • THE SYN VORA ADVANTAGE</span>
+              <span className="text-xs font-mono text-synvora-emerald-400 font-semibold">PAGE 10 • THE SYNVORA ADVANTAGE</span>
             </div>
 
             <div className="space-y-6">

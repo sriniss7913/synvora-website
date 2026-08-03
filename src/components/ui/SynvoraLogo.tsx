@@ -59,8 +59,8 @@ export const SynvoraLogo: React.FC<SynvoraLogoProps> = ({
       {variant !== 'icon' && (
         <div className="flex flex-col justify-center">
           <div className="flex items-center gap-2">
-            <span className="text-xl md:text-2xl font-bold tracking-[0.2em] font-heading text-slate-900 dark:text-white leading-none">
-              SYN V O R A
+            <span className="text-xl md:text-2xl font-extrabold tracking-wider font-heading text-slate-900 dark:text-white leading-none">
+              SYNVORA
             </span>
           </div>
 
