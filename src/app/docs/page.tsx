@@ -40,7 +40,7 @@ export default function DocsPage() {
                 Comprehensive 12-page executive profile covering practice areas, zero-trust frameworks, methodology, & client verticals.
               </p>
             </div>
-            <Button href="/brochure" variant="blue" size="md" className="w-full">
+            <Button href="/brochure" variant="primary" size="md" className="w-full">
               <span>View / Export Brochure</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
