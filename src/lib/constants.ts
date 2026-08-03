@@ -5,7 +5,8 @@ export const SITE_CONFIG = {
   vision: 'To become a globally trusted technology company that transforms businesses through intelligence, innovation, and digital trust.',
   mission: 'We help businesses become smarter, more secure, and future-ready by delivering AI-powered automation, cybersecurity, digital transformation, and innovative software solutions.',
   email: 'contact@synvoratech.in',
-  phone: '+1 (800) 555-SYN VORA',
+  phone: '+91 9094394114',
+  whatsapp: 'https://wa.me/919094394114',
   address: 'Synvora Technologies, Bengaluru, KA',
   linkedin: 'https://linkedin.com/company/synvora-technologies',
 };

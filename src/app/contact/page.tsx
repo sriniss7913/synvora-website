@@ -101,6 +101,21 @@ export default function ContactPage() {
               </Card>
 
               <Card hoverEffect={false} className="p-5 flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Phone & WhatsApp Direct</h4>
+                  <a href={SITE_CONFIG.whatsapp} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-900 dark:text-white hover:text-emerald-600 block">
+                    {SITE_CONFIG.phone}
+                  </a>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    Click to open instant WhatsApp chat →
+                  </p>
+                </div>
+              </Card>
+
+              <Card hoverEffect={false} className="p-5 flex items-start gap-4">
                 <div className="p-3 rounded-lg bg-synvora-emerald-50 dark:bg-slate-800 text-synvora-emerald-600 dark:text-synvora-emerald-400">
                   <Linkedin className="w-5 h-5" />
                 </div>
