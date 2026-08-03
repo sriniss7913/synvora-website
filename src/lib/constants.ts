@@ -6,7 +6,7 @@ export const SITE_CONFIG = {
   mission: 'We help businesses become smarter, more secure, and future-ready by delivering AI-powered automation, cybersecurity, digital transformation, and innovative software solutions.',
   email: 'contact@synvoratech.in',
   phone: '+1 (800) 555-SYN VORA',
-  address: 'Synvora Tower, Innovation Way, Tech Hub',
+  address: 'Synvora Technologies, Bengaluru, KA',
   linkedin: 'https://linkedin.com/company/synvora-technologies',
 };
 
