@@ -1,14 +1,8 @@
 // Native Firebase Firestore REST API Client (Cloud Only)
+// NOTE: NEXT_PUBLIC_ prefix is required for these to be readable in browser (client) code.
 
-export const FIREBASE_PROJECT_ID =
-  process.env.FIREBASE_PROJECT_ID ||
-  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-  '';
-
-export const FIREBASE_API_KEY =
-  process.env.FIREBASE_API_KEY ||
-  process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-  '';
+export const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '';
+export const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '';
 
 export const isFirebaseConfigured = Boolean(FIREBASE_PROJECT_ID && FIREBASE_API_KEY);
 
