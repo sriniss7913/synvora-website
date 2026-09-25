@@ -1,7 +1,14 @@
-// Native Firebase Firestore REST API Client (Zero npm dependencies required)
+// Native Firebase Firestore REST API Client
 
-export const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '';
-export const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '';
+export const FIREBASE_PROJECT_ID =
+  process.env.FIREBASE_PROJECT_ID ||
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
+  '';
+
+export const FIREBASE_API_KEY =
+  process.env.FIREBASE_API_KEY ||
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
+  '';
 
 export const isFirebaseConfigured = Boolean(FIREBASE_PROJECT_ID && FIREBASE_API_KEY);
 
@@ -10,7 +17,11 @@ const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREB
 /**
  * Save / Update a document in Firestore via REST API
  */
-export async function saveFirestoreDoc(collectionName: string, docId: string, data: Record<string, any>): Promise<boolean> {
+export async function saveFirestoreDoc(
+  collectionName: string,
+  docId: string,
+  data: Record<string, any>
+): Promise<boolean> {
   if (!isFirebaseConfigured) return false;
 
   try {
