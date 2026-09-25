@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/Badge';
 import {
   TrackerTask,
   BreakLog,
-  INITIAL_EMPLOYEES,
+  EmployeeProfile,
+  getStoredEmployees,
+  saveStoredEmployees,
   getStoredTasks,
   saveStoredTasks,
   getStoredBreaks,
@@ -39,12 +41,16 @@ import {
   Layers,
   ArrowRight,
   X,
-  Edit3,
+  Trash2,
+  Database,
+  UserPlus,
+  HelpCircle,
 } from 'lucide-react';
 
 export default function TrackerPage() {
   const [role, setRole] = useState<'employer' | 'employee'>('employer');
-  const [activeEmployee, setActiveEmployee] = useState<string>('Srinivasan S');
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [activeEmployee, setActiveEmployee] = useState<string>('');
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'analytics'>('day');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
@@ -53,22 +59,25 @@ export default function TrackerPage() {
 
   // Timer state for active task
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [timerMins, setTimerMins] = useState<number>(0);
 
   // Modals state
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showAddBreakModal, setShowAddBreakModal] = useState(false);
-  const [showManualTimeModal, setShowManualTimeModal] = useState(false);
+  const [showManageTeamModal, setShowManageTeamModal] = useState(false);
+  const [showDbGuideModal, setShowDbGuideModal] = useState(false);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  // Form state for new employee
+  const [newEmp, setNewEmp] = useState({ name: '', role: '' });
+
   // Form states for creating task
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    assignedTo: 'Srinivasan S',
+    assignedTo: '',
     category: 'AI Workflow Optimization',
     priority: 'medium' as TrackerTask['priority'],
     estimatedHours: 2.0,
@@ -82,40 +91,82 @@ export default function TrackerPage() {
     endTime: '13:45',
   });
 
-  // Form state for manual task time entry
-  const [manualTime, setManualTime] = useState({
-    taskId: '',
-    durationMins: 60,
-    notes: '',
-  });
-
-  // Load stored tasks & breaks on mount
+  // Load stored data on mount
   useEffect(() => {
+    const loadedEmps = getStoredEmployees();
+    setEmployees(loadedEmps);
+    if (loadedEmps.length > 0) {
+      setActiveEmployee(loadedEmps[0].name);
+      setNewTask((prev) => ({ ...prev, assignedTo: loadedEmps[0].name }));
+    }
+
     setTasks(getStoredTasks());
     setBreaks(getStoredBreaks());
   }, []);
 
-  // Sync tasks to localStorage whenever tasks change
+  // Sync state helpers
+  const updateEmployees = (updated: EmployeeProfile[]) => {
+    setEmployees(updated);
+    saveStoredEmployees(updated);
+    if (updated.length > 0 && !updated.some((e) => e.name === activeEmployee)) {
+      setActiveEmployee(updated[0].name);
+    }
+  };
+
   const updateTasks = (updated: TrackerTask[]) => {
     setTasks(updated);
     saveStoredTasks(updated);
   };
 
-  // Sync breaks to localStorage whenever breaks change
   const updateBreaks = (updated: BreakLog[]) => {
     setBreaks(updated);
     saveStoredBreaks(updated);
   };
 
+  // Add Employee Handler
+  const handleAddEmployee = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmp.name.trim()) return;
+
+    const initials = newEmp.name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+    const created: EmployeeProfile = {
+      id: `emp-${Date.now()}`,
+      name: newEmp.name.trim(),
+      role: newEmp.role.trim() || 'Team Member',
+      avatar: initials || 'EM',
+    };
+
+    const updated = [...employees, created];
+    updateEmployees(updated);
+    setNewEmp({ name: '', role: '' });
+    if (!activeEmployee) setActiveEmployee(created.name);
+  };
+
+  // Remove Employee Handler
+  const handleRemoveEmployee = (empId: string) => {
+    const target = employees.find((e) => e.id === empId);
+    if (!target) return;
+    const updated = employees.filter((e) => e.id !== empId);
+    updateEmployees(updated);
+  };
+
   // Task creation handler
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newTask.title.trim() || !newTask.assignedTo) return;
+
     const created: TrackerTask = {
       id: `task-${Date.now()}`,
       title: newTask.title,
       description: newTask.description,
       assignedTo: newTask.assignedTo,
-      assignedBy: 'Srinivasan S (Employer)',
+      assignedBy: 'Employer',
       category: newTask.category,
       priority: newTask.priority,
       estimatedHours: Number(newTask.estimatedHours),
@@ -123,17 +174,24 @@ export default function TrackerPage() {
       status: 'pending',
       actualDurationMins: 0,
     };
+
     updateTasks([created, ...tasks]);
     setNewTask({
       title: '',
       description: '',
-      assignedTo: 'Srinivasan S',
+      assignedTo: employees[0]?.name || '',
       category: 'AI Workflow Optimization',
       priority: 'medium',
       estimatedHours: 2.0,
       targetDate: selectedDate,
     });
     setShowAddTaskModal(false);
+  };
+
+  // Delete Task Handler
+  const handleDeleteTask = (taskId: string) => {
+    const updated = tasks.filter((t) => t.id !== taskId);
+    updateTasks(updated);
   };
 
   // Break registration handler
@@ -155,6 +213,12 @@ export default function TrackerPage() {
 
     updateBreaks([created, ...breaks]);
     setShowAddBreakModal(false);
+  };
+
+  // Delete Break Handler
+  const handleDeleteBreak = (breakId: string) => {
+    const updated = breaks.filter((b) => b.id !== breakId);
+    updateBreaks(updated);
   };
 
   // Task status transition triggers
@@ -269,20 +333,20 @@ export default function TrackerPage() {
   return (
     <div className="pt-28 md:pt-36 pb-20 bg-slate-950 text-slate-100 min-h-screen">
       
-      {/* Top Header & Role Switcher */}
+      {/* Top Header & Control Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
         <div className="bg-slate-900 p-6 rounded-3xl shadow-2xl border border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="emerald">Enterprise Workload & Time Module</Badge>
-              <span className="text-xs font-mono text-slate-400">ROUTE: /tracker</span>
+              <Badge variant="emerald">Workload & Time Module</Badge>
+              <span className="text-xs font-mono text-slate-400">Clean Slate System</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-white">
               Synvora Job & Time Tracker
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Precision task assignment, real-time time logging, custom break registration, & calendar analytics.
+              Dynamic employee management, task dispatching, precision time logging, & break registration.
             </p>
           </div>
 
@@ -299,7 +363,7 @@ export default function TrackerPage() {
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Employer (Manager)</span>
+                <span>Employer View</span>
               </button>
 
               <button
@@ -311,15 +375,24 @@ export default function TrackerPage() {
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
-                <span>Employee (Staff)</span>
+                <span>Employee View</span>
               </button>
             </div>
 
-            {/* Export Report Button */}
-            <Button onClick={handleExportCSV} variant="outline" size="sm" className="border-slate-700 text-white">
-              <Download className="w-4 h-4" />
-              <span>Export CSV</span>
+            {/* Manage Team Button */}
+            <Button onClick={() => setShowManageTeamModal(true)} variant="outline" size="sm" className="border-slate-700 text-white">
+              <UserPlus className="w-4 h-4 text-synvora-emerald-400" />
+              <span>Manage Team ({employees.length})</span>
             </Button>
+
+            {/* Cloud Database Guide Trigger */}
+            <button
+              onClick={() => setShowDbGuideModal(true)}
+              className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-synvora-blue-400 hover:text-white transition-colors"
+              title="Cloud Database Connection Guide"
+            >
+              <Database className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -329,17 +402,21 @@ export default function TrackerPage() {
           {/* Active Employee Selector */}
           <div className="flex items-center gap-3 w-full md:w-auto">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Staff:</span>
-            <select
-              value={activeEmployee}
-              onChange={(e) => setActiveEmployee(e.target.value)}
-              className="bg-slate-950 text-white text-xs font-bold px-3 py-2 rounded-xl border border-slate-800 focus:ring-2 focus:ring-synvora-blue-600 outline-none"
-            >
-              {INITIAL_EMPLOYEES.map((emp) => (
-                <option key={emp.id} value={emp.name}>
-                  {emp.name} ({emp.role})
-                </option>
-              ))}
-            </select>
+            {employees.length === 0 ? (
+              <span className="text-xs text-rose-400 font-bold italic">No staff added yet. Click &quot;Manage Team&quot; to add employees.</span>
+            ) : (
+              <select
+                value={activeEmployee}
+                onChange={(e) => setActiveEmployee(e.target.value)}
+                className="bg-slate-950 text-white text-xs font-bold px-3 py-2 rounded-xl border border-slate-800 focus:ring-2 focus:ring-synvora-blue-600 outline-none"
+              >
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.name}>
+                    {emp.name} ({emp.role})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* View Mode Tabs (Day, Week, Month, Analytics) */}
@@ -395,9 +472,8 @@ export default function TrackerPage() {
         {viewMode === 'day' && (
           <div className="space-y-8 animate-in fade-in duration-300">
             
-            {/* Daily Scorecard Summary Cards (Employee View / Manager Summary) */}
+            {/* Daily Scorecard Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              
               <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between text-slate-400 text-xs">
                   <span>Gross Shift Hours (9 AM - 6 PM)</span>
@@ -439,12 +515,10 @@ export default function TrackerPage() {
                 </p>
                 <p className="text-[11px] text-slate-500">vs 9h gross shift baseline</p>
               </div>
-
             </div>
 
             {/* Action Bar based on Role */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900 p-5 rounded-2xl border border-slate-800">
-              
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="relative w-full sm:w-64">
                   <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
@@ -471,20 +545,28 @@ export default function TrackerPage() {
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 {role === 'employer' ? (
-                  <Button onClick={() => setShowAddTaskModal(true)} variant="emerald" size="sm" className="w-full sm:w-auto">
+                  <Button
+                    onClick={() => {
+                      if (employees.length === 0) {
+                        setShowManageTeamModal(true);
+                      } else {
+                        setShowAddTaskModal(true);
+                      }
+                    }}
+                    variant="emerald"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                  >
                     <Plus className="w-4 h-4" />
                     <span>Assign New Task</span>
                   </Button>
                 ) : (
-                  <>
-                    <Button onClick={() => setShowAddBreakModal(true)} variant="outline" size="sm" className="border-amber-700 text-amber-400 w-full sm:w-auto">
-                      <Coffee className="w-4 h-4" />
-                      <span>Register Break</span>
-                    </Button>
-                  </>
+                  <Button onClick={() => setShowAddBreakModal(true)} variant="outline" size="sm" className="border-amber-700 text-amber-400 w-full sm:w-auto">
+                    <Coffee className="w-4 h-4" />
+                    <span>Register Break</span>
+                  </Button>
                 )}
               </div>
-
             </div>
 
             {/* Main Task List & Daily Break Log Matrix */}
@@ -495,16 +577,28 @@ export default function TrackerPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold font-heading text-white flex items-center gap-2">
                     <Briefcase className="w-5 h-5 text-synvora-blue-400" />
-                    <span>{role === 'employer' ? 'Team Workload & Dispatched Tasks' : `Tasks Assigned to ${activeEmployee}`}</span>
+                    <span>{role === 'employer' ? 'Team Workload & Dispatched Tasks' : `Tasks Assigned to ${activeEmployee || 'Select Staff'}`}</span>
                   </h3>
                   <span className="text-xs font-mono text-slate-400">{filteredTasks.length} tasks</span>
                 </div>
 
                 {filteredTasks.length === 0 ? (
-                  <Card className="p-8 text-center text-slate-400 space-y-2">
+                  <Card className="p-8 text-center text-slate-400 space-y-3">
                     <CheckCircle2 className="w-8 h-8 text-synvora-emerald-400 mx-auto" />
-                    <p className="text-sm font-bold text-white">No tasks found for this view</p>
-                    <p className="text-xs">Adjust search filters or use &quot;Assign New Task&quot; above.</p>
+                    <p className="text-base font-bold text-white">Clean Slate — No Active Tasks</p>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      {employees.length === 0
+                        ? 'Click "Manage Team" above to add your employees, then assign your first daily task.'
+                        : 'Click "Assign New Task" to dispatch work to your team members.'}
+                    </p>
+                    {role === 'employer' && (
+                      <div className="pt-2">
+                        <Button onClick={() => setShowAddTaskModal(true)} variant="emerald" size="sm">
+                          <Plus className="w-4 h-4" />
+                          <span>Dispatch First Task</span>
+                        </Button>
+                      </div>
+                    )}
                   </Card>
                 ) : (
                   filteredTasks.map((t) => (
@@ -537,22 +631,34 @@ export default function TrackerPage() {
                           <p className="text-xs text-slate-300 mt-1 leading-relaxed">{t.description}</p>
                         </div>
 
-                        {/* Status Badge */}
-                        <div className="text-right flex-shrink-0">
-                          {t.status === 'completed' && (
-                            <Badge variant="emerald" className="bg-synvora-emerald-950 text-synvora-emerald-300 border-synvora-emerald-800">
-                              Completed ({formatMinsToHoursStr(t.actualDurationMins)})
-                            </Badge>
-                          )}
-                          {t.status === 'in_progress' && (
-                            <Badge variant="blue" className="bg-synvora-blue-950 text-synvora-blue-300 border-synvora-blue-800 animate-pulse">
-                              In Progress
-                            </Badge>
-                          )}
-                          {t.status === 'pending' && (
-                            <Badge variant="outline" className="border-slate-700 text-slate-400">
-                              Pending
-                            </Badge>
+                        {/* Status Badge & Delete Button */}
+                        <div className="text-right flex-shrink-0 space-y-2">
+                          <div>
+                            {t.status === 'completed' && (
+                              <Badge variant="emerald" className="bg-synvora-emerald-950 text-synvora-emerald-300 border-synvora-emerald-800">
+                                Completed ({formatMinsToHoursStr(t.actualDurationMins)})
+                              </Badge>
+                            )}
+                            {t.status === 'in_progress' && (
+                              <Badge variant="blue" className="bg-synvora-blue-950 text-synvora-blue-300 border-synvora-blue-800 animate-pulse">
+                                In Progress
+                              </Badge>
+                            )}
+                            {t.status === 'pending' && (
+                              <Badge variant="outline" className="border-slate-700 text-slate-400">
+                                Pending
+                              </Badge>
+                            )}
+                          </div>
+
+                          {role === 'employer' && (
+                            <button
+                              onClick={() => handleDeleteTask(t.id)}
+                              className="text-slate-500 hover:text-rose-400 transition-colors p-1"
+                              title="Delete Task"
+                            >
+                              <Trash2 className="w-4 h-4 ml-auto" />
+                            </button>
                           )}
                         </div>
                       </div>
@@ -607,7 +713,7 @@ export default function TrackerPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold font-heading text-white flex items-center gap-2">
                     <Coffee className="w-5 h-5 text-amber-400" />
-                    <span>Registered Breaks ({activeEmployee})</span>
+                    <span>Registered Breaks ({activeEmployee || 'None'})</span>
                   </h3>
                   <span className="text-xs font-mono text-amber-400">{formatMinsToHoursStr(totalBreakMinsLogged)}</span>
                 </div>
@@ -624,7 +730,12 @@ export default function TrackerPage() {
                           <p className="font-bold text-white">{b.type} Break</p>
                           <p className="text-[11px] text-slate-400">{b.startTime} - {b.endTime || 'Active'}</p>
                         </div>
-                        <span className="font-mono font-bold text-amber-400">{b.durationMins} mins</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-amber-400">{b.durationMins} mins</span>
+                          <button onClick={() => handleDeleteBreak(b.id)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -633,35 +744,47 @@ export default function TrackerPage() {
                 {/* Team Live Oversight Card for Employer */}
                 {role === 'employer' && (
                   <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 pt-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-synvora-blue-400 flex items-center gap-2">
-                      <Users className="w-4 h-4" /> Live Team Availability
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-synvora-blue-400 flex items-center gap-2">
+                        <Users className="w-4 h-4" /> Live Team Members ({employees.length})
+                      </h4>
+                      <button onClick={() => setShowManageTeamModal(true)} className="text-xs text-synvora-emerald-400 font-bold hover:underline">
+                        + Add Staff
+                      </button>
+                    </div>
 
                     <div className="space-y-2 text-xs">
-                      {INITIAL_EMPLOYEES.map((emp) => {
-                        const empActiveTask = tasks.find((t) => t.assignedTo === emp.name && t.status === 'in_progress');
-                        const empOnBreak = breaks.find((b) => b.employeeName === emp.name && !b.endTime);
+                      {employees.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">No employees added. Click &quot;+ Add Staff&quot; above.</p>
+                      ) : (
+                        employees.map((emp) => {
+                          const empActiveTask = tasks.find((t) => t.assignedTo === emp.name && t.status === 'in_progress');
+                          const empOnBreak = breaks.find((b) => b.employeeName === emp.name && !b.endTime);
 
-                        return (
-                          <div key={emp.id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-200 text-[10px] font-bold flex items-center justify-center">
-                                {emp.avatar}
+                          return (
+                            <div key={emp.id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-200 text-[10px] font-bold flex items-center justify-center">
+                                  {emp.avatar}
+                                </span>
+                                <div>
+                                  <p className="font-semibold text-white">{emp.name}</p>
+                                  <p className="text-[10px] text-slate-500">{emp.role}</p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-bold">
+                                {empActiveTask ? (
+                                  <span className="text-synvora-blue-400">Working</span>
+                                ) : empOnBreak ? (
+                                  <span className="text-amber-400">On Break</span>
+                                ) : (
+                                  <span className="text-slate-500 font-normal">Available</span>
+                                )}
                               </span>
-                              <span className="font-semibold text-white">{emp.name}</span>
                             </div>
-                            <span className="text-[10px] font-bold">
-                              {empActiveTask ? (
-                                <span className="text-synvora-blue-400">Working ({empActiveTask.category})</span>
-                              ) : empOnBreak ? (
-                                <span className="text-amber-400">On Break</span>
-                              ) : (
-                                <span className="text-slate-500">Available</span>
-                              )}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}
@@ -682,12 +805,12 @@ export default function TrackerPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-7 gap-3 text-xs">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                 <div key={day} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                   <span className="text-xs font-bold text-synvora-blue-400 uppercase">{day}</span>
                   <div className="pt-2 space-y-1">
-                    <p className="text-[11px] text-slate-400">Logged Work: <strong className="text-synvora-emerald-400">7.5h</strong></p>
-                    <p className="text-[11px] text-slate-400">Breaks: <strong className="text-amber-400">45m</strong></p>
+                    <p className="text-[11px] text-slate-400">Tasks Logged: <strong className="text-white">{filteredTasks.length}</strong></p>
+                    <p className="text-[11px] text-slate-400">Breaks: <strong className="text-amber-400">{formatMinsToHoursStr(totalBreakMinsLogged)}</strong></p>
                   </div>
                 </div>
               ))}
@@ -733,27 +856,155 @@ export default function TrackerPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Work Velocity</span>
-                <h4 className="text-3xl font-extrabold text-white">92%</h4>
-                <p className="text-slate-400">Tasks completed within estimated hours</p>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Active Employees</span>
+                <h4 className="text-3xl font-extrabold text-white">{employees.length} Members</h4>
+                <p className="text-slate-400">Registered staff profiles in system</p>
               </div>
 
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Break Registration Rate</span>
-                <h4 className="text-3xl font-extrabold text-amber-400">100% Compliance</h4>
-                <p className="text-slate-400">All team breaks registered with exact times</p>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Dispatched Tasks</span>
+                <h4 className="text-3xl font-extrabold text-synvora-blue-400">{tasks.length} Tasks</h4>
+                <p className="text-slate-400">Recorded across all project categories</p>
               </div>
 
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Cloud Storage Sync</span>
-                <h4 className="text-3xl font-extrabold text-synvora-emerald-400">LocalStorage + API Ready</h4>
-                <p className="text-slate-400">Firebase / Supabase API repository ready</p>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Registered Break Logs</span>
+                <h4 className="text-3xl font-extrabold text-amber-400">{breaks.length} Breaks</h4>
+                <p className="text-slate-400">Custom registered break entries</p>
               </div>
             </div>
           </div>
         )}
 
       </div>
+
+      {/* ─── MANAGE TEAM / ADD-REMOVE EMPLOYEES MODAL ─── */}
+      {showManageTeamModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-3xl p-6 md:p-8 max-w-lg w-full border border-slate-800 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div>
+                <h3 className="text-xl font-bold font-heading text-white flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-synvora-emerald-400" />
+                  <span>Manage Team Members</span>
+                </h3>
+                <p className="text-xs text-slate-400">Add or remove employees from your workspace.</p>
+              </div>
+              <button onClick={() => setShowManageTeamModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Add Employee Form */}
+            <form onSubmit={handleAddEmployee} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+              <h4 className="font-bold text-white uppercase tracking-wider">Add New Staff Member</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  required
+                  value={newEmp.name}
+                  onChange={(e) => setNewEmp({ ...newEmp, name: e.target.value })}
+                  placeholder="Full Name (e.g. Rahul Sharma)"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white outline-none focus:ring-2 focus:ring-synvora-emerald-600"
+                />
+                <input
+                  type="text"
+                  value={newEmp.role}
+                  onChange={(e) => setNewEmp({ ...newEmp, role: e.target.value })}
+                  placeholder="Role / Title (e.g. AI Engineer)"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white outline-none focus:ring-2 focus:ring-synvora-emerald-600"
+                />
+              </div>
+              <Button type="submit" variant="emerald" size="sm" className="w-full">
+                <UserPlus className="w-4 h-4" />
+                <span>Add Employee</span>
+              </Button>
+            </form>
+
+            {/* Employee List with Remove Trigger */}
+            <div className="space-y-2 text-xs max-h-64 overflow-y-auto pr-1">
+              <h4 className="font-bold text-slate-400 uppercase tracking-wider">Current Team ({employees.length})</h4>
+              {employees.length === 0 ? (
+                <p className="text-slate-500 italic py-2 text-center">No employees added yet.</p>
+              ) : (
+                employees.map((emp) => (
+                  <div key={emp.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-full bg-slate-800 text-white text-xs font-bold flex items-center justify-center border border-slate-700">
+                        {emp.avatar}
+                      </span>
+                      <div>
+                        <p className="font-bold text-white">{emp.name}</p>
+                        <p className="text-[11px] text-slate-400">{emp.role}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveEmployee(emp.id)}
+                      className="p-2 rounded-lg bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 transition-colors border border-slate-800"
+                      title="Remove Employee"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button onClick={() => setShowManageTeamModal(false)} variant="outline" size="sm" className="border-slate-700 text-white">
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── CLOUD DATABASE CONNECTION GUIDE MODAL ─── */}
+      {showDbGuideModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-3xl p-6 md:p-8 max-w-2xl w-full border border-slate-800 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 text-xs">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-synvora-blue-400">
+                <Database className="w-6 h-6" />
+                <h3 className="text-xl font-bold font-heading text-white">Cloud Database Integration Guide</h3>
+              </div>
+              <button onClick={() => setShowDbGuideModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-slate-300 leading-relaxed">
+              <p>
+                Currently, your Job & Time Tracker records data in <strong>`localStorage`</strong> for instant zero-setup local storage. To synchronize data live across multiple devices/laptops/phones over the cloud, follow these step-by-step instructions:
+              </p>
+
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <h4 className="font-bold text-synvora-emerald-400 text-sm">Option A: Firebase Firestore (Real-Time NoSQL)</h4>
+                <ol className="list-decimal pl-4 space-y-1 text-slate-400">
+                  <li>Create a free Firebase project at <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-synvora-blue-400 underline">console.firebase.google.com</a>.</li>
+                  <li>Enable <strong>Cloud Firestore</strong> database and copy your Firebase SDK config keys into <code className="text-white">.env.local</code>.</li>
+                  <li>In <code className="text-white">src/lib/trackerStore.ts</code>, replace the <code className="text-white">localStorage</code> methods with <code className="text-white">onSnapshot()</code> for real-time live sync!</li>
+                </ol>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <h4 className="font-bold text-synvora-blue-400 text-sm">Option B: Supabase (PostgreSQL)</h4>
+                <ol className="list-decimal pl-4 space-y-1 text-slate-400">
+                  <li>Create a free Supabase database at <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-synvora-blue-400 underline">supabase.com</a>.</li>
+                  <li>Create <code className="text-white">tasks</code>, <code className="text-white">breaks</code>, and <code className="text-white">employees</code> tables.</li>
+                  <li>Use <code className="text-white">@supabase/supabase-js</code> client to query and persist records directly.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <Button onClick={() => setShowDbGuideModal(false)} variant="emerald" size="sm">
+                Got It
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── CREATE TASK MODAL (Employer) ─── */}
       {showAddTaskModal && (
@@ -792,16 +1043,20 @@ export default function TrackerPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Assigned Staff</label>
-                  <select
-                    value={newTask.assignedTo}
-                    onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none"
-                  >
-                    {INITIAL_EMPLOYEES.map((emp) => (
-                      <option key={emp.id} value={emp.name}>{emp.name}</option>
-                    ))}
-                  </select>
+                  <label className="block font-bold text-slate-300 uppercase tracking-wider mb-1">Assigned Staff *</label>
+                  {employees.length === 0 ? (
+                    <p className="text-rose-400 text-[11px] font-bold pt-2">Please add employees first!</p>
+                  ) : (
+                    <select
+                      value={newTask.assignedTo}
+                      onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                      className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none"
+                    >
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.name}>{emp.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -860,7 +1115,7 @@ export default function TrackerPage() {
                 <Button onClick={() => setShowAddTaskModal(false)} type="button" variant="outline" size="sm" className="border-slate-700 text-white">
                   Cancel
                 </Button>
-                <Button type="submit" variant="emerald" size="sm">
+                <Button type="submit" variant="emerald" size="sm" disabled={employees.length === 0}>
                   <span>Dispatch Task</span>
                 </Button>
               </div>
