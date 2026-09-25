@@ -1,23 +1,18 @@
-import {
-  isFirebaseConfigured,
-  saveFirestoreDoc,
-  deleteFirestoreDoc,
-  fetchFirestoreCollection,
-} from './firebase';
+// Cloud-Only Tracker Store via Upstash Redis API Routes
 
 export interface TrackerTask {
   id: string;
   title: string;
   description: string;
-  assignedTo: string; // Employee Name
-  assignedBy: string; // Employer Name
+  assignedTo: string;
+  assignedBy: string;
   category: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   estimatedHours: number;
   date: string; // YYYY-MM-DD
   status: 'pending' | 'in_progress' | 'on_break' | 'completed';
-  startTime?: string; // HH:mm
-  endTime?: string; // HH:mm
+  startTime?: string;
+  endTime?: string;
   actualDurationMins: number;
   notes?: string;
 }
@@ -26,8 +21,8 @@ export interface BreakLog {
   id: string;
   employeeName: string;
   type: 'Lunch' | 'Tea' | 'Personal' | 'Other';
-  startTime: string; // HH:mm
-  endTime?: string; // HH:mm
+  startTime: string;
+  endTime?: string;
   durationMins: number;
   date: string; // YYYY-MM-DD
 }
@@ -39,11 +34,67 @@ export interface EmployeeProfile {
   avatar: string;
 }
 
-const LOCAL_STORAGE_KEY_EMPLOYEES = 'synvora_tracker_employees_v2';
-const LOCAL_STORAGE_KEY_TASKS = 'synvora_tracker_tasks_v2';
-const LOCAL_STORAGE_KEY_BREAKS = 'synvora_tracker_breaks_v2';
+// ─── EMPLOYEES ────────────────────────────────────────────────────────────────
 
-// ─── ONE-TIME MIGRATION: Push Local Tasks/Employees/Breaks to Firebase ────────
+export async function fetchCloudEmployees(): Promise<EmployeeProfile[]> {
+  const res = await fetch('/api/tracker/employees', { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createOrUpdateCloudEmployee(emp: EmployeeProfile): Promise<void> {
+  await fetch('/api/tracker/employees', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(emp),
+  });
+}
+
+export async function deleteCloudEmployee(id: string): Promise<void> {
+  await fetch(`/api/tracker/employees?id=${id}`, { method: 'DELETE' });
+}
+
+// ─── TASKS ────────────────────────────────────────────────────────────────────
+
+export async function fetchCloudTasks(): Promise<TrackerTask[]> {
+  const res = await fetch('/api/tracker/tasks', { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createOrUpdateCloudTask(task: TrackerTask): Promise<void> {
+  await fetch('/api/tracker/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(task),
+  });
+}
+
+export async function deleteCloudTask(id: string): Promise<void> {
+  await fetch(`/api/tracker/tasks?id=${id}`, { method: 'DELETE' });
+}
+
+// ─── BREAKS ───────────────────────────────────────────────────────────────────
+
+export async function fetchCloudBreaks(): Promise<BreakLog[]> {
+  const res = await fetch('/api/tracker/breaks', { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createOrUpdateCloudBreak(brk: BreakLog): Promise<void> {
+  await fetch('/api/tracker/breaks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(brk),
+  });
+}
+
+export async function deleteCloudBreak(id: string): Promise<void> {
+  await fetch(`/api/tracker/breaks?id=${id}`, { method: 'DELETE' });
+}
+
+// ─── LEGACY: Push any previously stored localStorage items to cloud ────────────
 
 export async function pushLocalDataToFirebaseCloud(): Promise<{
   tasksPushed: number;
@@ -57,78 +108,38 @@ export async function pushLocalDataToFirebaseCloud(): Promise<{
   let breaksPushed = 0;
 
   try {
-    // 1. Read local employees & push to Cloud
-    const localEmpsRaw = localStorage.getItem(LOCAL_STORAGE_KEY_EMPLOYEES);
-    if (localEmpsRaw) {
-      const emps: EmployeeProfile[] = JSON.parse(localEmpsRaw);
+    const empRaw = localStorage.getItem('synvora_tracker_employees_v2');
+    if (empRaw) {
+      const emps: EmployeeProfile[] = JSON.parse(empRaw);
       for (const emp of emps) {
-        await saveFirestoreDoc('employees', emp.id, emp);
+        await createOrUpdateCloudEmployee(emp);
         employeesPushed++;
       }
+      localStorage.removeItem('synvora_tracker_employees_v2');
     }
 
-    // 2. Read local tasks & push to Cloud
-    const localTasksRaw = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
-    if (localTasksRaw) {
-      const tasks: TrackerTask[] = JSON.parse(localTasksRaw);
+    const tasksRaw = localStorage.getItem('synvora_tracker_tasks_v2');
+    if (tasksRaw) {
+      const tasks: TrackerTask[] = JSON.parse(tasksRaw);
       for (const task of tasks) {
-        await saveFirestoreDoc('tasks', task.id, task);
+        await createOrUpdateCloudTask(task);
         tasksPushed++;
       }
+      localStorage.removeItem('synvora_tracker_tasks_v2');
     }
 
-    // 3. Read local breaks & push to Cloud
-    const localBreaksRaw = localStorage.getItem(LOCAL_STORAGE_KEY_BREAKS);
-    if (localBreaksRaw) {
-      const breaks: BreakLog[] = JSON.parse(localBreaksRaw);
+    const breaksRaw = localStorage.getItem('synvora_tracker_breaks_v2');
+    if (breaksRaw) {
+      const breaks: BreakLog[] = JSON.parse(breaksRaw);
       for (const brk of breaks) {
-        await saveFirestoreDoc('breaks', brk.id, brk);
+        await createOrUpdateCloudBreak(brk);
         breaksPushed++;
       }
+      localStorage.removeItem('synvora_tracker_breaks_v2');
     }
   } catch (err) {
-    console.error('Migration error pushing local data to Firebase:', err);
+    console.error('Migration error:', err);
   }
 
   return { tasksPushed, employeesPushed, breaksPushed };
-}
-
-// ─── CLOUD-ONLY FETCHERS ───────────────────────────────────────────────────────
-
-export async function fetchCloudEmployees(): Promise<EmployeeProfile[]> {
-  return await fetchFirestoreCollection<EmployeeProfile>('employees');
-}
-
-export async function fetchCloudTasks(): Promise<TrackerTask[]> {
-  return await fetchFirestoreCollection<TrackerTask>('tasks');
-}
-
-export async function fetchCloudBreaks(): Promise<BreakLog[]> {
-  return await fetchFirestoreCollection<BreakLog>('breaks');
-}
-
-// ─── CLOUD-ONLY SAVERS & DELETERS ──────────────────────────────────────────────
-
-export async function createOrUpdateCloudEmployee(emp: EmployeeProfile): Promise<void> {
-  await saveFirestoreDoc('employees', emp.id, emp);
-}
-
-export async function deleteCloudEmployee(empId: string): Promise<void> {
-  await deleteFirestoreDoc('employees', empId);
-}
-
-export async function createOrUpdateCloudTask(task: TrackerTask): Promise<void> {
-  await saveFirestoreDoc('tasks', task.id, task);
-}
-
-export async function deleteCloudTask(taskId: string): Promise<void> {
-  await deleteFirestoreDoc('tasks', taskId);
-}
-
-export async function createOrUpdateCloudBreak(brk: BreakLog): Promise<void> {
-  await saveFirestoreDoc('breaks', brk.id, brk);
-}
-
-export async function deleteCloudBreak(breakId: string): Promise<void> {
-  await deleteFirestoreDoc('breaks', breakId);
 }
