@@ -1,3 +1,5 @@
+import { isFirebaseConfigured, saveFirestoreDoc } from './firebase';
+
 export interface TrackerTask {
   id: string;
   title: string;
@@ -36,6 +38,8 @@ const LOCAL_STORAGE_KEY_EMPLOYEES = 'synvora_tracker_employees_v2';
 const LOCAL_STORAGE_KEY_TASKS = 'synvora_tracker_tasks_v2';
 const LOCAL_STORAGE_KEY_BREAKS = 'synvora_tracker_breaks_v2';
 
+// ─── EMPLOYEES ───────────────────────────────────────────────────────────────
+
 export function getStoredEmployees(): EmployeeProfile[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -54,7 +58,16 @@ export function saveStoredEmployees(employees: EmployeeProfile[]): void {
   } catch (err) {
     console.error('Failed to save employees to localStorage', err);
   }
+
+  // Sync to Firebase Cloud Database if configured
+  if (isFirebaseConfigured) {
+    employees.forEach((emp) => {
+      saveFirestoreDoc('employees', emp.id, emp);
+    });
+  }
 }
+
+// ─── TASKS ───────────────────────────────────────────────────────────────────
 
 export function getStoredTasks(): TrackerTask[] {
   if (typeof window === 'undefined') return [];
@@ -74,7 +87,16 @@ export function saveStoredTasks(tasks: TrackerTask[]): void {
   } catch (err) {
     console.error('Failed to save tasks to localStorage', err);
   }
+
+  // Sync to Firebase Cloud Database if configured
+  if (isFirebaseConfigured) {
+    tasks.forEach((t) => {
+      saveFirestoreDoc('tasks', t.id, t);
+    });
+  }
 }
+
+// ─── BREAKS ──────────────────────────────────────────────────────────────────
 
 export function getStoredBreaks(): BreakLog[] {
   if (typeof window === 'undefined') return [];
@@ -93,5 +115,12 @@ export function saveStoredBreaks(breaks: BreakLog[]): void {
     localStorage.setItem(LOCAL_STORAGE_KEY_BREAKS, JSON.stringify(breaks));
   } catch (err) {
     console.error('Failed to save breaks to localStorage', err);
+  }
+
+  // Sync to Firebase Cloud Database if configured
+  if (isFirebaseConfigured) {
+    breaks.forEach((b) => {
+      saveFirestoreDoc('breaks', b.id, b);
+    });
   }
 }
