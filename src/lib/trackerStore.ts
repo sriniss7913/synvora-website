@@ -1,4 +1,9 @@
-import { isFirebaseConfigured, saveFirestoreDoc, fetchFirestoreCollection } from './firebase';
+import {
+  isFirebaseConfigured,
+  saveFirestoreDoc,
+  deleteFirestoreDoc,
+  fetchFirestoreCollection,
+} from './firebase';
 
 export interface TrackerTask {
   id: string;
@@ -38,125 +43,92 @@ const LOCAL_STORAGE_KEY_EMPLOYEES = 'synvora_tracker_employees_v2';
 const LOCAL_STORAGE_KEY_TASKS = 'synvora_tracker_tasks_v2';
 const LOCAL_STORAGE_KEY_BREAKS = 'synvora_tracker_breaks_v2';
 
-// ─── EMPLOYEES ───────────────────────────────────────────────────────────────
+// ─── ONE-TIME MIGRATION: Push Local Tasks/Employees/Breaks to Firebase ────────
 
-export function getStoredEmployees(): EmployeeProfile[] {
-  if (typeof window === 'undefined') return [];
+export async function pushLocalDataToFirebaseCloud(): Promise<{
+  tasksPushed: number;
+  employeesPushed: number;
+  breaksPushed: number;
+}> {
+  if (typeof window === 'undefined') return { tasksPushed: 0, employeesPushed: 0, breaksPushed: 0 };
+
+  let tasksPushed = 0;
+  let employeesPushed = 0;
+  let breaksPushed = 0;
+
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_EMPLOYEES);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    // 1. Read local employees & push to Cloud
+    const localEmpsRaw = localStorage.getItem(LOCAL_STORAGE_KEY_EMPLOYEES);
+    if (localEmpsRaw) {
+      const emps: EmployeeProfile[] = JSON.parse(localEmpsRaw);
+      for (const emp of emps) {
+        await saveFirestoreDoc('employees', emp.id, emp);
+        employeesPushed++;
+      }
+    }
+
+    // 2. Read local tasks & push to Cloud
+    const localTasksRaw = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
+    if (localTasksRaw) {
+      const tasks: TrackerTask[] = JSON.parse(localTasksRaw);
+      for (const task of tasks) {
+        await saveFirestoreDoc('tasks', task.id, task);
+        tasksPushed++;
+      }
+    }
+
+    // 3. Read local breaks & push to Cloud
+    const localBreaksRaw = localStorage.getItem(LOCAL_STORAGE_KEY_BREAKS);
+    if (localBreaksRaw) {
+      const breaks: BreakLog[] = JSON.parse(localBreaksRaw);
+      for (const brk of breaks) {
+        await saveFirestoreDoc('breaks', brk.id, brk);
+        breaksPushed++;
+      }
+    }
   } catch (err) {
-    return [];
+    console.error('Migration error pushing local data to Firebase:', err);
   }
+
+  return { tasksPushed, employeesPushed, breaksPushed };
 }
+
+// ─── CLOUD-ONLY FETCHERS ───────────────────────────────────────────────────────
 
 export async function fetchCloudEmployees(): Promise<EmployeeProfile[]> {
-  const local = getStoredEmployees();
-  if (!isFirebaseConfigured) return local;
-
-  const cloud = await fetchFirestoreCollection<EmployeeProfile>('employees');
-  if (cloud.length > 0) {
-    saveStoredEmployeesLocally(cloud);
-    return cloud;
-  }
-  return local;
-}
-
-function saveStoredEmployeesLocally(employees: EmployeeProfile[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_EMPLOYEES, JSON.stringify(employees));
-  } catch (err) {}
-}
-
-export function saveStoredEmployees(employees: EmployeeProfile[]): void {
-  saveStoredEmployeesLocally(employees);
-  if (isFirebaseConfigured) {
-    employees.forEach((emp) => {
-      saveFirestoreDoc('employees', emp.id, emp);
-    });
-  }
-}
-
-// ─── TASKS ───────────────────────────────────────────────────────────────────
-
-export function getStoredTasks(): TrackerTask[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch (err) {
-    return [];
-  }
+  return await fetchFirestoreCollection<EmployeeProfile>('employees');
 }
 
 export async function fetchCloudTasks(): Promise<TrackerTask[]> {
-  const local = getStoredTasks();
-  if (!isFirebaseConfigured) return local;
-
-  const cloud = await fetchFirestoreCollection<TrackerTask>('tasks');
-  if (cloud.length > 0) {
-    saveStoredTasksLocally(cloud);
-    return cloud;
-  }
-  return local;
-}
-
-function saveStoredTasksLocally(tasks: TrackerTask[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_TASKS, JSON.stringify(tasks));
-  } catch (err) {}
-}
-
-export function saveStoredTasks(tasks: TrackerTask[]): void {
-  saveStoredTasksLocally(tasks);
-  if (isFirebaseConfigured) {
-    tasks.forEach((t) => {
-      saveFirestoreDoc('tasks', t.id, t);
-    });
-  }
-}
-
-// ─── BREAKS ──────────────────────────────────────────────────────────────────
-
-export function getStoredBreaks(): BreakLog[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_BREAKS);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch (err) {
-    return [];
-  }
+  return await fetchFirestoreCollection<TrackerTask>('tasks');
 }
 
 export async function fetchCloudBreaks(): Promise<BreakLog[]> {
-  const local = getStoredBreaks();
-  if (!isFirebaseConfigured) return local;
-
-  const cloud = await fetchFirestoreCollection<BreakLog>('breaks');
-  if (cloud.length > 0) {
-    saveStoredBreaksLocally(cloud);
-    return cloud;
-  }
-  return local;
+  return await fetchFirestoreCollection<BreakLog>('breaks');
 }
 
-function saveStoredBreaksLocally(breaks: BreakLog[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_BREAKS, JSON.stringify(breaks));
-  } catch (err) {}
+// ─── CLOUD-ONLY SAVERS & DELETERS ──────────────────────────────────────────────
+
+export async function createOrUpdateCloudEmployee(emp: EmployeeProfile): Promise<void> {
+  await saveFirestoreDoc('employees', emp.id, emp);
 }
 
-export function saveStoredBreaks(breaks: BreakLog[]): void {
-  saveStoredBreaksLocally(breaks);
-  if (isFirebaseConfigured) {
-    breaks.forEach((b) => {
-      saveFirestoreDoc('breaks', b.id, b);
-    });
-  }
+export async function deleteCloudEmployee(empId: string): Promise<void> {
+  await deleteFirestoreDoc('employees', empId);
+}
+
+export async function createOrUpdateCloudTask(task: TrackerTask): Promise<void> {
+  await saveFirestoreDoc('tasks', task.id, task);
+}
+
+export async function deleteCloudTask(taskId: string): Promise<void> {
+  await deleteFirestoreDoc('tasks', taskId);
+}
+
+export async function createOrUpdateCloudBreak(brk: BreakLog): Promise<void> {
+  await saveFirestoreDoc('breaks', brk.id, brk);
+}
+
+export async function deleteCloudBreak(breakId: string): Promise<void> {
+  await deleteFirestoreDoc('breaks', breakId);
 }

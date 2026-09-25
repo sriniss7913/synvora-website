@@ -1,4 +1,4 @@
-// Native Firebase Firestore REST API Client
+// Native Firebase Firestore REST API Client (Cloud Only)
 
 export const FIREBASE_PROJECT_ID =
   process.env.FIREBASE_PROJECT_ID ||
@@ -15,14 +15,17 @@ export const isFirebaseConfigured = Boolean(FIREBASE_PROJECT_ID && FIREBASE_API_
 const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 
 /**
- * Save / Update a document in Firestore via REST API
+ * Save / Update a document in Firestore Cloud DB via REST API
  */
 export async function saveFirestoreDoc(
   collectionName: string,
   docId: string,
   data: Record<string, any>
 ): Promise<boolean> {
-  if (!isFirebaseConfigured) return false;
+  if (!isFirebaseConfigured) {
+    console.warn(`[Firebase] Firebase keys missing. Set FIREBASE_PROJECT_ID and FIREBASE_API_KEY.`);
+    return false;
+  }
 
   try {
     const fields: Record<string, any> = {};
@@ -45,13 +48,32 @@ export async function saveFirestoreDoc(
 
     return response.ok;
   } catch (err) {
-    console.error(`Firebase Firestore REST sync error for ${collectionName}/${docId}:`, err);
+    console.error(`Firebase Cloud REST sync error for ${collectionName}/${docId}:`, err);
     return false;
   }
 }
 
 /**
- * Fetch all documents in a collection from Firestore via REST API
+ * Delete a document from Firestore Cloud DB via REST API
+ */
+export async function deleteFirestoreDoc(
+  collectionName: string,
+  docId: string
+): Promise<boolean> {
+  if (!isFirebaseConfigured) return false;
+
+  try {
+    const url = `${FIRESTORE_BASE_URL}/${collectionName}/${docId}?key=${FIREBASE_API_KEY}`;
+    const response = await fetch(url, { method: 'DELETE' });
+    return response.ok;
+  } catch (err) {
+    console.error(`Firebase Cloud REST delete error for ${collectionName}/${docId}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Fetch all documents in a collection from Firestore Cloud DB via REST API
  */
 export async function fetchFirestoreCollection<T>(collectionName: string): Promise<T[]> {
   if (!isFirebaseConfigured) return [];
@@ -80,7 +102,6 @@ export async function fetchFirestoreCollection<T>(collectionName: string): Promi
         }
       }
 
-      // Ensure doc id is set if missing
       if (!result.id && docItem.name) {
         result.id = docItem.name.split('/').pop();
       }
@@ -88,7 +109,7 @@ export async function fetchFirestoreCollection<T>(collectionName: string): Promi
       return result as T;
     });
   } catch (err) {
-    console.error(`Firebase Firestore fetch error for ${collectionName}:`, err);
+    console.error(`Firebase Cloud fetch error for ${collectionName}:`, err);
     return [];
   }
 }

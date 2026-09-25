@@ -9,15 +9,16 @@ import {
   TrackerTask,
   BreakLog,
   EmployeeProfile,
-  getStoredEmployees,
-  saveStoredEmployees,
   fetchCloudEmployees,
-  getStoredTasks,
-  saveStoredTasks,
   fetchCloudTasks,
-  getStoredBreaks,
-  saveStoredBreaks,
   fetchCloudBreaks,
+  createOrUpdateCloudEmployee,
+  deleteCloudEmployee,
+  createOrUpdateCloudTask,
+  deleteCloudTask,
+  createOrUpdateCloudBreak,
+  deleteCloudBreak,
+  pushLocalDataToFirebaseCloud,
 } from '@/lib/trackerStore';
 import {
   Clock,
@@ -48,6 +49,8 @@ import {
   Database,
   UserPlus,
   HelpCircle,
+  UploadCloud,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function TrackerPage() {
@@ -59,6 +62,8 @@ export default function TrackerPage() {
 
   const [tasks, setTasks] = useState<TrackerTask[]>([]);
   const [breaks, setBreaks] = useState<BreakLog[]>([]);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<string>('');
 
   // Timer state for active task
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -94,8 +99,9 @@ export default function TrackerPage() {
     endTime: '13:45',
   });
 
-  // Imports for cloud sync
+  // Load Cloud Data strictly
   const loadCloudData = async () => {
+    setIsSyncing(true);
     try {
       const [cloudEmps, cloudTasks, cloudBreaks] = await Promise.all([
         fetchCloudEmployees(),
@@ -103,61 +109,52 @@ export default function TrackerPage() {
         fetchCloudBreaks(),
       ]);
 
-      if (cloudEmps.length > 0) {
-        setEmployees(cloudEmps);
-        setActiveEmployee((prev) => prev || cloudEmps[0].name);
+      setEmployees(cloudEmps);
+      if (cloudEmps.length > 0 && !activeEmployee) {
+        setActiveEmployee(cloudEmps[0].name);
+        setNewTask((prev) => ({ ...prev, assignedTo: cloudEmps[0].name }));
       }
-      if (cloudTasks.length > 0) setTasks(cloudTasks);
-      if (cloudBreaks.length > 0) setBreaks(cloudBreaks);
+
+      setTasks(cloudTasks);
+      setBreaks(cloudBreaks);
     } catch (err) {
       console.error('Error fetching cloud data:', err);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
-  // Load stored data on mount & start 5-second cloud sync interval
+  // Run initial migration of existing local items + fetch Cloud Data
   useEffect(() => {
-    // 1. Initial Local load
-    const loadedEmps = getStoredEmployees();
-    setEmployees(loadedEmps);
-    if (loadedEmps.length > 0) {
-      setActiveEmployee((prev) => prev || loadedEmps[0].name);
-      setNewTask((prev) => ({ ...prev, assignedTo: loadedEmps[0].name }));
-    }
-    setTasks(getStoredTasks());
-    setBreaks(getStoredBreaks());
+    const initCloud = async () => {
+      // 1. First push any existing local laptop items to Firebase Cloud DB
+      await pushLocalDataToFirebaseCloud();
+      // 2. Fetch fresh cloud state
+      await loadCloudData();
+    };
 
-    // 2. Fetch live Cloud data immediately
-    loadCloudData();
+    initCloud();
 
-    // 3. Set up periodic 5-second polling for live multi-device sync
+    // 3. Poll cloud every 4 seconds for live multi-device sync
     const interval = setInterval(() => {
       loadCloudData();
-    }, 5000);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Sync state helpers
-  const updateEmployees = (updated: EmployeeProfile[]) => {
-    setEmployees(updated);
-    saveStoredEmployees(updated);
-    if (updated.length > 0 && !updated.some((e) => e.name === activeEmployee)) {
-      setActiveEmployee(updated[0].name);
-    }
+  // Manual Trigger: Push whatever is entered locally to Firebase Cloud
+  const handlePushLocalToCloud = async () => {
+    setIsSyncing(true);
+    setSyncStatus('Pushing local data to Firebase Cloud...');
+    const result = await pushLocalDataToFirebaseCloud();
+    await loadCloudData();
+    setSyncStatus(`Pushed ${result.tasksPushed} tasks, ${result.employeesPushed} staff to Cloud!`);
+    setTimeout(() => setSyncStatus(''), 4000);
   };
 
-  const updateTasks = (updated: TrackerTask[]) => {
-    setTasks(updated);
-    saveStoredTasks(updated);
-  };
-
-  const updateBreaks = (updated: BreakLog[]) => {
-    setBreaks(updated);
-    saveStoredBreaks(updated);
-  };
-
-  // Add Employee Handler
-  const handleAddEmployee = (e: React.FormEvent) => {
+  // Add Employee Handler (Cloud Direct)
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmp.name.trim()) return;
 
@@ -175,22 +172,23 @@ export default function TrackerPage() {
       avatar: initials || 'EM',
     };
 
-    const updated = [...employees, created];
-    updateEmployees(updated);
-    setNewEmp({ name: '', role: '' });
+    setEmployees((prev) => [...prev, created]);
     if (!activeEmployee) setActiveEmployee(created.name);
+    setNewEmp({ name: '', role: '' });
+
+    await createOrUpdateCloudEmployee(created);
+    await loadCloudData();
   };
 
-  // Remove Employee Handler
-  const handleRemoveEmployee = (empId: string) => {
-    const target = employees.find((e) => e.id === empId);
-    if (!target) return;
-    const updated = employees.filter((e) => e.id !== empId);
-    updateEmployees(updated);
+  // Remove Employee Handler (Cloud Direct)
+  const handleRemoveEmployee = async (empId: string) => {
+    setEmployees((prev) => prev.filter((e) => e.id !== empId));
+    await deleteCloudEmployee(empId);
+    await loadCloudData();
   };
 
-  // Task creation handler
-  const handleCreateTask = (e: React.FormEvent) => {
+  // Task creation handler (Cloud Direct)
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title.trim() || !newTask.assignedTo) return;
 
@@ -208,7 +206,8 @@ export default function TrackerPage() {
       actualDurationMins: 0,
     };
 
-    updateTasks([created, ...tasks]);
+    setTasks((prev) => [created, ...prev]);
+    setShowAddTaskModal(false);
     setNewTask({
       title: '',
       description: '',
@@ -218,17 +217,20 @@ export default function TrackerPage() {
       estimatedHours: 2.0,
       targetDate: selectedDate,
     });
-    setShowAddTaskModal(false);
+
+    await createOrUpdateCloudTask(created);
+    await loadCloudData();
   };
 
-  // Delete Task Handler
-  const handleDeleteTask = (taskId: string) => {
-    const updated = tasks.filter((t) => t.id !== taskId);
-    updateTasks(updated);
+  // Delete Task Handler (Cloud Direct)
+  const handleDeleteTask = async (taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    await deleteCloudTask(taskId);
+    await loadCloudData();
   };
 
-  // Break registration handler
-  const handleRegisterBreak = (e: React.FormEvent) => {
+  // Break registration handler (Cloud Direct)
+  const handleRegisterBreak = async (e: React.FormEvent) => {
     e.preventDefault();
     const startMins = parseTimeToMins(newBreak.startTime);
     const endMins = parseTimeToMins(newBreak.endTime);
@@ -244,57 +246,63 @@ export default function TrackerPage() {
       date: selectedDate,
     };
 
-    updateBreaks([created, ...breaks]);
+    setBreaks((prev) => [created, ...prev]);
     setShowAddBreakModal(false);
+
+    await createOrUpdateCloudBreak(created);
+    await loadCloudData();
   };
 
-  // Delete Break Handler
-  const handleDeleteBreak = (breakId: string) => {
-    const updated = breaks.filter((b) => b.id !== breakId);
-    updateBreaks(updated);
+  // Delete Break Handler (Cloud Direct)
+  const handleDeleteBreak = async (breakId: string) => {
+    setBreaks((prev) => prev.filter((b) => b.id !== breakId));
+    await deleteCloudBreak(breakId);
+    await loadCloudData();
   };
 
-  // Task status transition triggers
-  const handleStartTask = (taskId: string) => {
-    const updated = tasks.map((t) => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          status: 'in_progress' as const,
-          startTime: t.startTime || new Date().toTimeString().slice(0, 5),
-        };
-      }
-      return t;
-    });
+  // Task status transition triggers (Cloud Direct)
+  const handleStartTask = async (taskId: string) => {
+    const target = tasks.find((t) => t.id === taskId);
+    if (!target) return;
+
+    const updatedTask: TrackerTask = {
+      ...target,
+      status: 'in_progress' as const,
+      startTime: target.startTime || new Date().toTimeString().slice(0, 5),
+    };
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
     setActiveTaskId(taskId);
-    updateTasks(updated);
+
+    await createOrUpdateCloudTask(updatedTask);
   };
 
-  const handlePauseTask = (taskId: string) => {
-    const updated = tasks.map((t) => {
-      if (t.id === taskId) {
-        return { ...t, status: 'pending' as const };
-      }
-      return t;
-    });
+  const handlePauseTask = async (taskId: string) => {
+    const target = tasks.find((t) => t.id === taskId);
+    if (!target) return;
+
+    const updatedTask: TrackerTask = { ...target, status: 'pending' as const };
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
     setActiveTaskId(null);
-    updateTasks(updated);
+
+    await createOrUpdateCloudTask(updatedTask);
   };
 
-  const handleCompleteTask = (taskId: string, notes?: string) => {
-    const updated = tasks.map((t) => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          status: 'completed' as const,
-          endTime: new Date().toTimeString().slice(0, 5),
-          notes: notes || t.notes || 'Completed successfully.',
-        };
-      }
-      return t;
-    });
+  const handleCompleteTask = async (taskId: string, notes?: string) => {
+    const target = tasks.find((t) => t.id === taskId);
+    if (!target) return;
+
+    const updatedTask: TrackerTask = {
+      ...target,
+      status: 'completed' as const,
+      endTime: new Date().toTimeString().slice(0, 5),
+      notes: notes || target.notes || 'Completed successfully.',
+    };
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
     if (activeTaskId === taskId) setActiveTaskId(null);
-    updateTasks(updated);
+
+    await createOrUpdateCloudTask(updatedTask);
   };
 
   // Helper time functions
@@ -372,19 +380,37 @@ export default function TrackerPage() {
         <div className="bg-slate-900 p-6 rounded-3xl shadow-2xl border border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="emerald">Workload & Time Module</Badge>
-              <span className="text-xs font-mono text-slate-400">Clean Slate System</span>
+              <Badge variant="emerald">Firebase Cloud Only System</Badge>
+              {isSyncing ? (
+                <span className="text-xs font-mono text-synvora-emerald-400 flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3 animate-spin" /> Live Cloud Syncing
+                </span>
+              ) : (
+                <span className="text-xs font-mono text-slate-400">Firebase Cloud Active</span>
+              )}
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-white">
               Synvora Job & Time Tracker
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Dynamic employee management, task dispatching, precision time logging, & break registration.
+              Multi-device Cloud Database engine. All entries sync live between laptop, phone, & web.
             </p>
+            {syncStatus && <p className="text-xs font-bold text-synvora-emerald-400 mt-1">{syncStatus}</p>}
           </div>
 
-          {/* Role & View Mode Switcher */}
+          {/* Role & Actions Bar */}
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            {/* Push Local Data to Firebase Cloud Button */}
+            <Button
+              onClick={handlePushLocalToCloud}
+              variant="emerald"
+              size="sm"
+              className="bg-synvora-emerald-600 hover:bg-synvora-emerald-500 text-white font-bold"
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>Push Local to Cloud DB</span>
+            </Button>
+
             {/* Role Toggle */}
             <div className="bg-slate-950 p-1.5 rounded-2xl border border-slate-800 flex items-center gap-1">
               <button
@@ -436,7 +462,7 @@ export default function TrackerPage() {
           <div className="flex items-center gap-3 w-full md:w-auto">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Staff:</span>
             {employees.length === 0 ? (
-              <span className="text-xs text-rose-400 font-bold italic">No staff added yet. Click &quot;Manage Team&quot; to add employees.</span>
+              <span className="text-xs text-rose-400 font-bold italic">No staff in Cloud DB. Click &quot;Manage Team&quot; or &quot;Push Local to Cloud&quot;.</span>
             ) : (
               <select
                 value={activeEmployee}
@@ -452,7 +478,7 @@ export default function TrackerPage() {
             )}
           </div>
 
-          {/* View Mode Tabs (Day, Week, Month, Analytics) */}
+          {/* View Mode Tabs */}
           <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
             {(['day', 'week', 'month', 'analytics'] as const).map((mode) => (
               <button
@@ -524,7 +550,7 @@ export default function TrackerPage() {
                 <p className="text-2xl font-extrabold text-synvora-emerald-400">
                   {formatMinsToHoursStr(netProductiveMins)}
                 </p>
-                <p className="text-[11px] text-slate-400">{employeeDailyTasks.length} tasks logged for today</p>
+                <p className="text-[11px] text-slate-400">{employeeDailyTasks.length} tasks logged in Cloud DB</p>
               </div>
 
               <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
@@ -612,26 +638,28 @@ export default function TrackerPage() {
                     <Briefcase className="w-5 h-5 text-synvora-blue-400" />
                     <span>{role === 'employer' ? 'Team Workload & Dispatched Tasks' : `Tasks Assigned to ${activeEmployee || 'Select Staff'}`}</span>
                   </h3>
-                  <span className="text-xs font-mono text-slate-400">{filteredTasks.length} tasks</span>
+                  <span className="text-xs font-mono text-slate-400">{filteredTasks.length} tasks in Cloud DB</span>
                 </div>
 
                 {filteredTasks.length === 0 ? (
                   <Card className="p-8 text-center text-slate-400 space-y-3">
                     <CheckCircle2 className="w-8 h-8 text-synvora-emerald-400 mx-auto" />
-                    <p className="text-base font-bold text-white">Clean Slate — No Active Tasks</p>
+                    <p className="text-base font-bold text-white">No Cloud Tasks Found</p>
                     <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                      {employees.length === 0
-                        ? 'Click "Manage Team" above to add your employees, then assign your first daily task.'
-                        : 'Click "Assign New Task" to dispatch work to your team members.'}
+                      Click &quot;Push Local to Cloud DB&quot; above to push any tasks created on your laptop to Firebase, or click &quot;Assign New Task&quot; below.
                     </p>
-                    {role === 'employer' && (
-                      <div className="pt-2">
-                        <Button onClick={() => setShowAddTaskModal(true)} variant="emerald" size="sm">
+                    <div className="pt-2 flex items-center justify-center gap-3">
+                      <Button onClick={handlePushLocalToCloud} variant="emerald" size="sm">
+                        <UploadCloud className="w-4 h-4" />
+                        <span>Push Laptop Tasks to Cloud DB</span>
+                      </Button>
+                      {role === 'employer' && (
+                        <Button onClick={() => setShowAddTaskModal(true)} variant="outline" size="sm" className="border-slate-700 text-white">
                           <Plus className="w-4 h-4" />
-                          <span>Dispatch First Task</span>
+                          <span>Assign New Task</span>
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </Card>
                 ) : (
                   filteredTasks.map((t) => (
@@ -687,10 +715,10 @@ export default function TrackerPage() {
                           {role === 'employer' && (
                             <button
                               onClick={() => handleDeleteTask(t.id)}
-                              className="text-slate-500 hover:text-rose-400 transition-colors p-1"
-                              title="Delete Task"
+                              className="text-slate-500 hover:text-rose-400 transition-colors p-1 ml-auto block"
+                              title="Delete Task from Cloud DB"
                             >
-                              <Trash2 className="w-4 h-4 ml-auto" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -754,7 +782,7 @@ export default function TrackerPage() {
                 <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
                   {employeeDailyBreaks.length === 0 ? (
                     <p className="text-xs text-slate-400 text-center py-4">
-                      No breaks registered for {selectedDate}. Use &quot;Register Break&quot; to log custom break times.
+                      No breaks registered in Cloud DB for {selectedDate}.
                     </p>
                   ) : (
                     employeeDailyBreaks.map((b) => (
@@ -779,7 +807,7 @@ export default function TrackerPage() {
                   <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 pt-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-synvora-blue-400 flex items-center gap-2">
-                        <Users className="w-4 h-4" /> Live Team Members ({employees.length})
+                        <Users className="w-4 h-4" /> Live Team ({employees.length})
                       </h4>
                       <button onClick={() => setShowManageTeamModal(true)} className="text-xs text-synvora-emerald-400 font-bold hover:underline">
                         + Add Staff
@@ -788,7 +816,7 @@ export default function TrackerPage() {
 
                     <div className="space-y-2 text-xs">
                       {employees.length === 0 ? (
-                        <p className="text-xs text-slate-500 italic">No employees added. Click &quot;+ Add Staff&quot; above.</p>
+                        <p className="text-xs text-slate-500 italic">No employees in Cloud DB. Click &quot;+ Add Staff&quot; above.</p>
                       ) : (
                         employees.map((emp) => {
                           const empActiveTask = tasks.find((t) => t.assignedTo === emp.name && t.status === 'in_progress');
@@ -891,7 +919,7 @@ export default function TrackerPage() {
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Active Employees</span>
                 <h4 className="text-3xl font-extrabold text-white">{employees.length} Members</h4>
-                <p className="text-slate-400">Registered staff profiles in system</p>
+                <p className="text-slate-400">Registered staff profiles in Cloud DB</p>
               </div>
 
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
@@ -903,7 +931,7 @@ export default function TrackerPage() {
               <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Registered Break Logs</span>
                 <h4 className="text-3xl font-extrabold text-amber-400">{breaks.length} Breaks</h4>
-                <p className="text-slate-400">Custom registered break entries</p>
+                <p className="text-slate-400">Custom registered break entries in Cloud DB</p>
               </div>
             </div>
           </div>
@@ -921,7 +949,7 @@ export default function TrackerPage() {
                   <UserPlus className="w-5 h-5 text-synvora-emerald-400" />
                   <span>Manage Team Members</span>
                 </h3>
-                <p className="text-xs text-slate-400">Add or remove employees from your workspace.</p>
+                <p className="text-xs text-slate-400">Add or remove employees directly in Firebase Cloud DB.</p>
               </div>
               <button onClick={() => setShowManageTeamModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -950,7 +978,7 @@ export default function TrackerPage() {
               </div>
               <Button type="submit" variant="emerald" size="sm" className="w-full">
                 <UserPlus className="w-4 h-4" />
-                <span>Add Employee</span>
+                <span>Add Employee to Cloud DB</span>
               </Button>
             </form>
 
@@ -958,7 +986,7 @@ export default function TrackerPage() {
             <div className="space-y-2 text-xs max-h-64 overflow-y-auto pr-1">
               <h4 className="font-bold text-slate-400 uppercase tracking-wider">Current Team ({employees.length})</h4>
               {employees.length === 0 ? (
-                <p className="text-slate-500 italic py-2 text-center">No employees added yet.</p>
+                <p className="text-slate-500 italic py-2 text-center">No employees in Cloud DB yet.</p>
               ) : (
                 employees.map((emp) => (
                   <div key={emp.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -974,7 +1002,7 @@ export default function TrackerPage() {
                     <button
                       onClick={() => handleRemoveEmployee(emp.id)}
                       className="p-2 rounded-lg bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 transition-colors border border-slate-800"
-                      title="Remove Employee"
+                      title="Remove Employee from Cloud DB"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -999,7 +1027,7 @@ export default function TrackerPage() {
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div className="flex items-center gap-2 text-synvora-blue-400">
                 <Database className="w-6 h-6" />
-                <h3 className="text-xl font-bold font-heading text-white">Cloud Database Integration Guide</h3>
+                <h3 className="text-xl font-bold font-heading text-white">Cloud Database Active</h3>
               </div>
               <button onClick={() => setShowDbGuideModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -1008,25 +1036,15 @@ export default function TrackerPage() {
 
             <div className="space-y-4 text-slate-300 leading-relaxed">
               <p>
-                Currently, your Job & Time Tracker records data in <strong>`localStorage`</strong> for instant zero-setup local storage. To synchronize data live across multiple devices/laptops/phones over the cloud, follow these step-by-step instructions:
+                Your Job & Time Tracker connects directly to <strong>Firebase Cloud Database</strong> for multi-device sync across laptops and mobile phones.
               </p>
 
               <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                <h4 className="font-bold text-synvora-emerald-400 text-sm">Option A: Firebase Firestore (Real-Time NoSQL)</h4>
-                <ol className="list-decimal pl-4 space-y-1 text-slate-400">
-                  <li>Create a free Firebase project at <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-synvora-blue-400 underline">console.firebase.google.com</a>.</li>
-                  <li>Enable <strong>Cloud Firestore</strong> database and copy your Firebase SDK config keys into <code className="text-white">.env.local</code>.</li>
-                  <li>In <code className="text-white">src/lib/trackerStore.ts</code>, replace the <code className="text-white">localStorage</code> methods with <code className="text-white">onSnapshot()</code> for real-time live sync!</li>
-                </ol>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                <h4 className="font-bold text-synvora-blue-400 text-sm">Option B: Supabase (PostgreSQL)</h4>
-                <ol className="list-decimal pl-4 space-y-1 text-slate-400">
-                  <li>Create a free Supabase database at <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-synvora-blue-400 underline">supabase.com</a>.</li>
-                  <li>Create <code className="text-white">tasks</code>, <code className="text-white">breaks</code>, and <code className="text-white">employees</code> tables.</li>
-                  <li>Use <code className="text-white">@supabase/supabase-js</code> client to query and persist records directly.</li>
-                </ol>
+                <h4 className="font-bold text-synvora-emerald-400 text-sm">Vercel Environment Keys Configured:</h4>
+                <code className="block p-3 rounded-lg bg-slate-900 text-synvora-emerald-300 font-mono text-[11px] leading-relaxed">
+                  FIREBASE_PROJECT_ID=&quot;your_project_id&quot;<br />
+                  FIREBASE_API_KEY=&quot;your_api_key&quot;
+                </code>
               </div>
             </div>
 
@@ -1149,7 +1167,7 @@ export default function TrackerPage() {
                   Cancel
                 </Button>
                 <Button type="submit" variant="emerald" size="sm" disabled={employees.length === 0}>
-                  <span>Dispatch Task</span>
+                  <span>Dispatch Task to Cloud DB</span>
                 </Button>
               </div>
             </form>
@@ -1216,7 +1234,7 @@ export default function TrackerPage() {
                   Cancel
                 </Button>
                 <Button type="submit" variant="emerald" size="sm">
-                  <span>Log Break</span>
+                  <span>Log Break in Cloud DB</span>
                 </Button>
               </div>
             </form>
