@@ -1,7 +1,8 @@
 // Upstash Redis REST API helper (server-side only)
+// Vercel injects these variable names when connecting Upstash via marketplace
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const UPSTASH_URL = process.env.KV_REST_API_URL || '';
+const UPSTASH_TOKEN = process.env.KV_REST_API_TOKEN || '';
 
 async function redis(command: string[]): Promise<any> {
   const res = await fetch(UPSTASH_URL, {
