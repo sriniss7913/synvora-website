@@ -11,10 +11,13 @@ import {
   EmployeeProfile,
   getStoredEmployees,
   saveStoredEmployees,
+  fetchCloudEmployees,
   getStoredTasks,
   saveStoredTasks,
+  fetchCloudTasks,
   getStoredBreaks,
   saveStoredBreaks,
+  fetchCloudBreaks,
 } from '@/lib/trackerStore';
 import {
   Clock,
@@ -91,17 +94,47 @@ export default function TrackerPage() {
     endTime: '13:45',
   });
 
-  // Load stored data on mount
+  // Imports for cloud sync
+  const loadCloudData = async () => {
+    try {
+      const [cloudEmps, cloudTasks, cloudBreaks] = await Promise.all([
+        fetchCloudEmployees(),
+        fetchCloudTasks(),
+        fetchCloudBreaks(),
+      ]);
+
+      if (cloudEmps.length > 0) {
+        setEmployees(cloudEmps);
+        setActiveEmployee((prev) => prev || cloudEmps[0].name);
+      }
+      if (cloudTasks.length > 0) setTasks(cloudTasks);
+      if (cloudBreaks.length > 0) setBreaks(cloudBreaks);
+    } catch (err) {
+      console.error('Error fetching cloud data:', err);
+    }
+  };
+
+  // Load stored data on mount & start 5-second cloud sync interval
   useEffect(() => {
+    // 1. Initial Local load
     const loadedEmps = getStoredEmployees();
     setEmployees(loadedEmps);
     if (loadedEmps.length > 0) {
-      setActiveEmployee(loadedEmps[0].name);
+      setActiveEmployee((prev) => prev || loadedEmps[0].name);
       setNewTask((prev) => ({ ...prev, assignedTo: loadedEmps[0].name }));
     }
-
     setTasks(getStoredTasks());
     setBreaks(getStoredBreaks());
+
+    // 2. Fetch live Cloud data immediately
+    loadCloudData();
+
+    // 3. Set up periodic 5-second polling for live multi-device sync
+    const interval = setInterval(() => {
+      loadCloudData();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Sync state helpers

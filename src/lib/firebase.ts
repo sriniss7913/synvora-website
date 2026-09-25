@@ -49,3 +49,46 @@ export async function saveFirestoreDoc(
     return false;
   }
 }
+
+/**
+ * Fetch all documents in a collection from Firestore via REST API
+ */
+export async function fetchFirestoreCollection<T>(collectionName: string): Promise<T[]> {
+  if (!isFirebaseConfigured) return [];
+
+  try {
+    const url = `${FIRESTORE_BASE_URL}/${collectionName}?key=${FIREBASE_API_KEY}`;
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) return [];
+
+    const json = await response.json();
+    if (!json.documents || !Array.isArray(json.documents)) return [];
+
+    return json.documents.map((docItem: any) => {
+      const result: Record<string, any> = {};
+      const fields = docItem.fields || {};
+
+      for (const [key, valObj] of Object.entries<any>(fields)) {
+        if ('stringValue' in valObj) {
+          result[key] = valObj.stringValue;
+        } else if ('doubleValue' in valObj) {
+          result[key] = Number(valObj.doubleValue);
+        } else if ('integerValue' in valObj) {
+          result[key] = Number(valObj.integerValue);
+        } else if ('booleanValue' in valObj) {
+          result[key] = Boolean(valObj.booleanValue);
+        }
+      }
+
+      // Ensure doc id is set if missing
+      if (!result.id && docItem.name) {
+        result.id = docItem.name.split('/').pop();
+      }
+
+      return result as T;
+    });
+  } catch (err) {
+    console.error(`Firebase Firestore fetch error for ${collectionName}:`, err);
+    return [];
+  }
+}
