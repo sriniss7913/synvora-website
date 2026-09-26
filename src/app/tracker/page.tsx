@@ -281,6 +281,40 @@ export default function TrackerPage() {
     await loadCloud();
   };
 
+  // ─── Employee Task Status Controls ────────────────────────────────────────
+  // Update local state immediately (no flicker) then save to cloud in background
+
+  const handleStartTask = (task: TrackerTask) => {
+    const now = new Date().toTimeString().slice(0, 5);
+    const updated: TrackerTask = { ...task, status: 'in_progress', startTime: task.startTime || now };
+    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+    createOrUpdateCloudTask(updated);
+  };
+
+  const handlePauseTask = (task: TrackerTask) => {
+    const updated: TrackerTask = { ...task, status: 'on_break' };
+    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+    createOrUpdateCloudTask(updated);
+  };
+
+  const handleResumeTask = (task: TrackerTask) => {
+    const updated: TrackerTask = { ...task, status: 'in_progress' };
+    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+    createOrUpdateCloudTask(updated);
+  };
+
+  const handleEndTask = (task: TrackerTask) => {
+    const now = new Date().toTimeString().slice(0, 5);
+    const endTime = now;
+    const durationMins = task.startTime
+      ? Math.max(0, parseTimeToMins(endTime) - parseTimeToMins(task.startTime))
+      : task.actualDurationMins;
+    const updated: TrackerTask = { ...task, status: 'completed', endTime, actualDurationMins: durationMins };
+    setTasks(prev => prev.map(t => t.id === task.id ? updated : t));
+    createOrUpdateCloudTask(updated);
+  };
+
+
   // ─── Break CRUD ───────────────────────────────────────────────────────────
 
   const handleRegisterBreak = async (e: React.FormEvent) => {
@@ -663,19 +697,48 @@ export default function TrackerPage() {
                           </div>
                         )}
 
-                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800">
-                          {t.status !== 'completed' && (
-                            <button onClick={() => handleMarkComplete(t)}
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                          {/* Start — only when pending */}
+                          {t.status === 'pending' && (
+                            <button onClick={() => handleStartTask(t)}
                               className="px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 font-bold text-xs flex items-center gap-1.5">
-                              <Check className="w-3.5 h-3.5" /> Mark Complete
+                              <span>▶</span> Start
                             </button>
                           )}
+                          {/* Pause — only when active */}
+                          {t.status === 'in_progress' && (
+                            <button onClick={() => handlePauseTask(t)}
+                              className="px-3 py-1.5 rounded-lg bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-800 font-bold text-xs flex items-center gap-1.5">
+                              <span>⏸</span> Pause
+                            </button>
+                          )}
+                          {/* Resume — only when paused */}
+                          {t.status === 'on_break' && (
+                            <button onClick={() => handleResumeTask(t)}
+                              className="px-3 py-1.5 rounded-lg bg-blue-950 hover:bg-blue-900 text-blue-300 border border-blue-800 font-bold text-xs flex items-center gap-1.5">
+                              <span>▶</span> Resume
+                            </button>
+                          )}
+                          {/* End Task — when active or paused */}
+                          {(t.status === 'in_progress' || t.status === 'on_break') && (
+                            <button onClick={() => handleEndTask(t)}
+                              className="px-3 py-1.5 rounded-lg bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 font-bold text-xs flex items-center gap-1.5">
+                              <span>⏹</span> End Task
+                            </button>
+                          )}
+                          {/* Completed state label */}
+                          {t.status === 'completed' && (
+                            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5" /> Completed {t.endTime && `at ${t.endTime}`}
+                            </span>
+                          )}
+                          {/* Edit — always visible, no delete for employees */}
                           <button onClick={() => openLogTime(t)}
-                            className="px-3 py-1.5 rounded-lg bg-blue-950 hover:bg-blue-900 text-blue-300 border border-blue-800 font-bold text-xs flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" /> {t.startTime ? 'Edit Time' : 'Log Start/End Time'}
+                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1.5 border border-slate-700">
+                            <Clock className="w-3.5 h-3.5" /> Log Time
                           </button>
                           <button onClick={() => openEditTask(t)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit Task">
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700" title="Edit Task">
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                         </div>
