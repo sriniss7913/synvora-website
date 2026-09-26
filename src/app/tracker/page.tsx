@@ -314,6 +314,19 @@ export default function TrackerPage() {
     createOrUpdateCloudTask(updated);
   };
 
+  const handleResetTask = (task: TrackerTask) => {
+    const reset: TrackerTask = {
+      ...task,
+      status: 'pending',
+      startTime: undefined,
+      endTime: undefined,
+      actualDurationMins: 0,
+      notes: undefined,
+    };
+    setTasks(prev => prev.map(t => t.id === task.id ? reset : t));
+    createOrUpdateCloudTask(reset);
+  };
+
 
   // ─── Break CRUD ───────────────────────────────────────────────────────────
 
@@ -731,6 +744,14 @@ export default function TrackerPage() {
                             <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
                               <Check className="w-3.5 h-3.5" /> Completed {t.endTime && `at ${t.endTime}`}
                             </span>
+                          )}
+                          {/* Reset — visible on any non-pending task */}
+                          {t.status !== 'pending' && (
+                            <button onClick={() => handleResetTask(t)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors"
+                              title="Reset time logs and revert to Pending">
+                              <RefreshCw className="w-3 h-3" /> Reset
+                            </button>
                           )}
                           {/* Edit — always visible, no delete for employees */}
                           <button onClick={() => openLogTime(t)}
