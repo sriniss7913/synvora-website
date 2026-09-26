@@ -2,36 +2,17 @@ import React from 'react';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { CTABanner } from '@/components/sections/CTABanner';
 import { SITE_CONFIG } from '@/lib/constants';
-import { Eye, Target, HeartHandshake, ShieldCheck, Award, Sparkles, Building2, Users, CheckCircle2 } from 'lucide-react';
+import { Eye, Target, CheckCircle2 } from 'lucide-react';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About Synvora Technologies | Company Story, Vision & Leadership',
+  title: 'About Synvora Technologies | Company Story, Vision & Mission',
   description: 'Learn about Synvora Technologies: our human-centered philosophy, enterprise vision, mission, and commitment to digital trust.',
 };
 
 export default function AboutPage() {
-  const leadership = [
-    {
-      role: 'Chief Executive Officer',
-      name: 'Enterprise Executive Board',
-      bio: 'Decades of global technology leadership across enterprise software, strategic risk, and digital transformation.',
-    },
-    {
-      role: 'Head of AI Architecture',
-      name: 'Dr. Autonomous Systems',
-      bio: 'Leading research in Retrieval-Augmented Generation (RAG), multi-agent systems, and responsible governance.',
-    },
-    {
-      role: 'Chief Information Security Officer',
-      name: 'Zero-Trust Operations',
-      bio: 'Overseeing global compliance, vulnerability assessments, and ISO 27001 / SOC 2 Type II risk posture.',
-    },
-  ];
-
   const milestones = [
     { year: 'Phase 1', title: 'Foundation & Core Architecture', desc: 'Established zero-trust enterprise frameworks and human-centered AI design standards.' },
     { year: 'Phase 2', title: 'Enterprise Practice Expansion', desc: 'Launched dedicated practice areas across AI Workflow Optimization, Security Auditing, and Process Digitization.' },
@@ -60,7 +41,7 @@ export default function AboutPage() {
             <div className="lg:col-span-7 space-y-6">
               <Badge variant="emerald">The Company Story</Badge>
               <h2 className="text-3xl font-bold font-heading text-slate-900 dark:text-white">
-                Engineered for Enterprise Trust & Global Scale
+                Engineered for Enterprise Trust &amp; Global Scale
               </h2>
               <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base">
                 In an era dominated by superficial tech hype, Synvora Technologies stands out as an enterprise-grade digital partner. We engineer systems designed for stability, compliance, and multi-year longevity.
@@ -127,37 +108,6 @@ export default function AboutPage() {
                 {SITE_CONFIG.mission}
               </p>
             </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Leadership Placeholders */}
-      <section className="py-20 bg-white dark:bg-slate-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <SectionHeader
-            badgeText="Governance & Talent"
-            badgeVariant="blue"
-            title="Enterprise Leadership & Advisory"
-            subtitle="Guided by seasoned technology architects, cybersecurity veterans, and strategic operational advisors."
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
-            {leadership.map((member, idx) => (
-              <Card key={idx} className="p-6 text-center">
-                <div className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-800 mx-auto mb-4 flex items-center justify-center text-slate-400 font-bold font-mono text-xl">
-                  SYN
-                </div>
-                <h3 className="text-lg font-bold font-heading text-slate-900 dark:text-white">
-                  {member.name}
-                </h3>
-                <p className="text-xs font-semibold text-synvora-blue-700 dark:text-synvora-blue-400 uppercase tracking-wider mb-3">
-                  {member.role}
-                </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  {member.bio}
-                </p>
-              </Card>
-            ))}
           </div>
         </div>
       </section>

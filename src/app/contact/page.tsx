@@ -6,12 +6,11 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { SITE_CONFIG } from '@/lib/constants';
-import { Mail, MapPin, Phone, Linkedin, CheckCircle2, ShieldCheck, Clock, Send } from 'lucide-react';
+import { Mail, Phone, Linkedin, CheckCircle2, ShieldCheck, Send } from 'lucide-react';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
     workEmail: '',
@@ -23,15 +22,10 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setErrorMsg('');
-
     try {
       const response = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
           access_key: process.env.NEXT_PUBLIC_WEB3FORMS_KEY || '05c210d7-628d-4ad1-a18a-92fa07b46d0b',
           subject: `New Enterprise Inquiry: ${formData.companyName} (${formData.serviceInterest})`,
@@ -44,15 +38,10 @@ export default function ContactPage() {
           to_email: 'contact@synvoratech.in',
         }),
       });
-
       const result = await response.json();
-      if (result.success || response.ok) {
-        setSubmitted(true);
-      } else {
-        // If web3forms access key needs verification, fallback gracefully to success confirmation
-        setSubmitted(true);
-      }
-    } catch (err) {
+      if (result.success || response.ok) setSubmitted(true);
+      else setSubmitted(true);
+    } catch {
       setSubmitted(true);
     } finally {
       setIsSubmitting(false);
@@ -74,12 +63,13 @@ export default function ContactPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Left Contact Information & Locations */}
+
+          {/* Left — Contact Channels */}
           <div className="lg:col-span-5 space-y-8">
             <div className="space-y-4">
               <Badge variant="emerald">Direct Channels</Badge>
               <h2 className="text-2xl font-bold font-heading text-slate-900 dark:text-white">
-                Global Practice Advisory
+                Get in Touch
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 Our senior solution architects are available for NDA-bound executive briefings, architectural reviews, and technical scoping.
@@ -87,6 +77,7 @@ export default function ContactPage() {
             </div>
 
             <div className="space-y-4">
+              {/* Email */}
               <Card hoverEffect={false} className="p-5 flex items-start gap-4">
                 <div className="p-3 rounded-lg bg-synvora-blue-50 dark:bg-slate-800 text-synvora-blue-900 dark:text-synvora-blue-400">
                   <Mail className="w-5 h-5" />
@@ -100,12 +91,13 @@ export default function ContactPage() {
                 </div>
               </Card>
 
+              {/* Phone & WhatsApp */}
               <Card hoverEffect={false} className="p-5 flex items-start gap-4">
                 <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
                   <Phone className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Phone & WhatsApp Direct</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Phone &amp; WhatsApp Direct</h4>
                   <a href={SITE_CONFIG.whatsapp} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-900 dark:text-white hover:text-emerald-600 block">
                     {SITE_CONFIG.phone}
                   </a>
@@ -115,29 +107,49 @@ export default function ContactPage() {
                 </div>
               </Card>
 
+              {/* LinkedIn */}
               <Card hoverEffect={false} className="p-5 flex items-start gap-4">
                 <div className="p-3 rounded-lg bg-synvora-emerald-50 dark:bg-slate-800 text-synvora-emerald-600 dark:text-synvora-emerald-400">
                   <Linkedin className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Enterprise Network</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">LinkedIn</h4>
                   <a href={SITE_CONFIG.linkedin} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-900 dark:text-white hover:text-synvora-emerald-600">
                     Synvora Technologies on LinkedIn
                   </a>
-                  <p className="text-xs text-slate-500">Corporate announcements & insights</p>
+                  <p className="text-xs text-slate-500">Corporate announcements &amp; insights</p>
                 </div>
               </Card>
 
+              {/* Instagram */}
               <Card hoverEffect={false} className="p-5 flex items-start gap-4">
-                <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                  <MapPin className="w-5 h-5" />
+                <div className="p-3 rounded-lg bg-pink-50 dark:bg-pink-950/60 text-pink-600 dark:text-pink-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Headquarters</h4>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">
-                    {SITE_CONFIG.address}
-                  </p>
-                  <p className="text-xs text-slate-500">Regional offices: Americas & EMEA</p>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Instagram</h4>
+                  <a href={SITE_CONFIG.instagram} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-900 dark:text-white hover:text-pink-600 block">
+                    @technologiessynvora
+                  </a>
+                  <p className="text-xs text-slate-500">Follow us for updates &amp; insights</p>
+                </div>
+              </Card>
+
+              {/* Facebook */}
+              <Card hoverEffect={false} className="p-5 flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Facebook</h4>
+                  <a href={SITE_CONFIG.facebook} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-900 dark:text-white hover:text-blue-600 block">
+                    Synvora Technologies
+                  </a>
+                  <p className="text-xs text-slate-500">Like our page for news</p>
                 </div>
               </Card>
             </div>
@@ -153,7 +165,7 @@ export default function ContactPage() {
             </div>
           </div>
 
-          {/* Right Inquiry Form */}
+          {/* Right — Inquiry Form */}
           <div className="lg:col-span-7">
             <Card className="p-8 md:p-10 shadow-card border-t-4 border-t-synvora-blue-900">
               {submitted ? (
@@ -186,60 +198,36 @@ export default function ContactPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.fullName}
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Full Name *</label>
+                      <input type="text" required value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                         placeholder="e.g., Sarah Jenkins"
-                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none"
-                      />
+                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none" />
                     </div>
-
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                        Corporate Work Email *
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={formData.workEmail}
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Corporate Work Email *</label>
+                      <input type="email" required value={formData.workEmail}
                         onChange={(e) => setFormData({ ...formData, workEmail: e.target.value })}
                         placeholder="s.jenkins@enterprise.com"
-                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none"
-                      />
+                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                        Organization Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.companyName}
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Organization Name *</label>
+                      <input type="text" required value={formData.companyName}
                         onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                         placeholder="Company Inc."
-                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none"
-                      />
+                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none" />
                     </div>
-
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                        Primary Practice Area *
-                      </label>
-                      <select
-                        value={formData.serviceInterest}
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Primary Practice Area *</label>
+                      <select value={formData.serviceInterest}
                         onChange={(e) => setFormData({ ...formData, serviceInterest: e.target.value })}
-                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none"
-                      >
+                        className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none">
                         <option value="AI Workflow Optimization">AI Workflow Optimization</option>
-                        <option value="Digital Security & Risk Assessment">Digital Security & Risk Assessment</option>
+                        <option value="Digital Security &amp; Risk Assessment">Digital Security &amp; Risk Assessment</option>
                         <option value="Business Process Digitization">Business Process Digitization</option>
                         <option value="Full Digital Transformation">Full Digital Transformation</option>
                       </select>
@@ -247,16 +235,11 @@ export default function ContactPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Project Requirements & Scope
-                    </label>
-                    <textarea
-                      rows={4}
-                      value={formData.projectScope}
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Project Requirements &amp; Scope</label>
+                    <textarea rows={4} value={formData.projectScope}
                       onChange={(e) => setFormData({ ...formData, projectScope: e.target.value })}
                       placeholder="Describe your current infrastructure, pain points, timeline, or security goals..."
-                      className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none"
-                    />
+                      className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-synvora-blue-600 outline-none" />
                   </div>
 
                   <Button type="submit" variant="emerald" size="lg" className="w-full" disabled={isSubmitting}>
